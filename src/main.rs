@@ -7,11 +7,15 @@ const COMMAND_RM: &str = "rm";
 const COMMAND_GET: &str = "get";
 const COMMAND_SET: &str = "set";
 const COMMAND_MV: &str = "mv";
+const COMMAND_DEFAULT: &str = "default";
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub aliases: HashMap<String, String>,
+
+    #[serde(default)]
+    pub default: Option<String>,
 }
 
 fn run() -> anyhow::Result<()> {
@@ -91,6 +95,16 @@ fn run() -> anyhow::Result<()> {
                     .short("f")
                     .long("force"),
             ),
+        SubCommand::with_name(COMMAND_DEFAULT)
+            .about("Get/set default alias")
+            .arg(
+                Arg::with_name("set")
+                    .help("Sets alias as default one")
+                    .short("s")
+                    .long("set")
+                    .takes_value(true)
+                    .value_name("ALIAS"),
+            ),
     ];
 
     let app_m = App::new(env!("CARGO_PKG_NAME"))
@@ -130,10 +144,11 @@ fn run() -> anyhow::Result<()> {
 
     match app_m.subcommand() {
         (COMMAND_GET, Some(sub_m)) => command_get(sub_m, &config),
+        (COMMAND_LS, Some(sub_m)) => command_ls(sub_m, &config),
         (COMMAND_SET, Some(sub_m)) => command_set(sub_m, &mut config, config_path)?,
-        (COMMAND_LS, Some(sub_m)) => command_ls(&config, sub_m),
         (COMMAND_RM, Some(sub_m)) => command_rm(sub_m, &mut config, config_path)?,
-        (COMMAND_MV, Some(sub_m)) => command_mv(sub_m, config, config_path)?,
+        (COMMAND_MV, Some(sub_m)) => command_mv(sub_m, &mut config, config_path)?,
+        (COMMAND_DEFAULT, Some(sub_m)) => command_default(sub_m, &mut config, config_path)?,
         _ => unreachable!(),
     }
 
@@ -187,15 +202,16 @@ fn command_set(
 
     let res = config.aliases.insert(alias.clone(), path.clone());
     save_config_file(config_path, &*config)?;
-    Ok(match res {
+    match res {
         Some(prev_path) => {
             println!("{}\t{} -> {}", alias, prev_path, path);
         }
         None => println!("{}\tnone -> {}", alias, path),
-    })
+    }
+    Ok(())
 }
 
-fn command_ls(config: &Config, sub_m: &clap::ArgMatches) {
+fn command_ls(sub_m: &clap::ArgMatches, config: &Config) {
     for (alias, path) in &config.aliases {
         if sub_m.is_present("show_paths") {
             println!("{}\t{}", alias, path);
@@ -220,7 +236,7 @@ fn command_rm(
 
 fn command_mv(
     sub_m: &clap::ArgMatches,
-    mut config: Config,
+    config: &mut Config,
     config_path: &str,
 ) -> Result<(), anyhow::Error> {
     let alias_from = sub_m
@@ -236,7 +252,7 @@ fn command_mv(
             std::process::exit(1);
         }
     }
-    Ok(match config.aliases.remove(alias_from) {
+    match config.aliases.remove(alias_from) {
         Some(ref path) => {
             config.aliases.insert(alias_to.clone(), path.clone());
             save_config_file(config_path, &config)?;
@@ -246,7 +262,46 @@ fn command_mv(
             eprintln!("Alias not found: {}", alias_from);
             std::process::exit(1);
         }
-    })
+    }
+    Ok(())
+}
+
+fn command_default(
+    sub_m: &clap::ArgMatches,
+    config: &mut Config,
+    config_path: &str,
+) -> Result<(), anyhow::Error> {
+    if sub_m.is_present("set") {
+        let alias = sub_m.value_of("set").expect("required argument");
+        match config.aliases.get(alias) {
+            Some(path) => {
+                config.default = Some(alias.to_owned());
+                save_config_file(config_path, config)?;
+                println!("{}\t{}", alias, path);
+            }
+            None => {
+                eprintln!("Alias not known.");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        match &config.default {
+            Some(alias) => match config.aliases.get(alias) {
+                Some(path) => {
+                    println!("{}", path);
+                }
+                None => {
+                    eprintln!("Config error: default alias is not defined!");
+                    std::process::exit(1);
+                }
+            },
+            None => {
+                eprintln!("Default alias not set");
+                std::process::exit(1);
+            }
+        }
+    }
+    Ok(())
 }
 
 fn save_config_file(config_path: &str, config: &Config) -> anyhow::Result<()> {
