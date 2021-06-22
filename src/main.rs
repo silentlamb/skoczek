@@ -39,6 +39,12 @@ fn run() -> anyhow::Result<()> {
                 Arg::with_name("path")
                     .help("Path assigned to an alias (default: CWD)")
                     .index(2),
+            )
+            .arg(
+                Arg::with_name("force")
+                    .help("Replace path if alias already exists")
+                    .short("f")
+                    .long("force"),
             ),
         SubCommand::with_name(COMMAND_LS)
             .about("Displays known aliases and their paths")
@@ -173,6 +179,12 @@ fn command_set(
                 }
             },
         );
+
+    if config.aliases.contains_key(&alias) && !sub_m.is_present("force") {
+        eprintln!("Alias already exists. Use -f to replace it anyway.");
+        std::process::exit(1);
+    }
+
     let res = config.aliases.insert(alias.clone(), path.clone());
     save_config_file(config_path, &*config)?;
     Ok(match res {
@@ -220,7 +232,7 @@ fn command_mv(
         .to_owned();
     if config.aliases.contains_key(&alias_to) {
         if !sub_m.is_present("force") {
-            eprintln!("Destination alias exists. Use -f to replaced it anyway.");
+            eprintln!("Destination alias exists. Use -f to replace it anyway.");
             std::process::exit(1);
         }
     }
