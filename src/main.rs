@@ -123,101 +123,118 @@ fn run() -> anyhow::Result<()> {
     };
 
     match app_m.subcommand() {
-        (COMMAND_GET, Some(sub_m)) => {
-            let alias = sub_m.value_of("alias").expect("alias is required");
-            match config.aliases.get(alias) {
-                Some(path) => {
-                    println!("{}", path);
-                }
-                None => {
-                    std::process::exit(1);
-                }
-            }
-        }
-        (COMMAND_SET, Some(sub_m)) => {
-            let alias = sub_m
-                .value_of("alias")
-                .expect("alias is required")
-                .to_owned();
-
-            let path = sub_m
-                .value_of("path")
-                .map(|p| p.to_owned())
-                .unwrap_or_else(
-                    || match std::env::current_dir().map(|p| p.into_os_string()) {
-                        Ok(cwd) => cwd.into_string().unwrap(),
-                        Err(err) => {
-                            match err.kind() {
-                                std::io::ErrorKind::NotFound => {
-                                    eprintln!("CWD cannot be used: path not found");
-                                }
-                                std::io::ErrorKind::PermissionDenied => {
-                                    eprintln!("CWD cannot be used: permission denied");
-                                }
-                                _ => {}
-                            }
-                            std::process::exit(1);
-                        }
-                    },
-                );
-
-            let res = config.aliases.insert(alias.clone(), path.clone());
-            save_config_file(config_path, &config)?;
-            // Print new alias only if database successfully saved
-            match res {
-                Some(prev_path) => {
-                    println!("{}\t{} -> {}", alias, prev_path, path);
-                }
-                None => println!("{}\tnone -> {}", alias, path),
-            }
-        }
-        (COMMAND_LS, Some(sub_m)) => {
-            for (alias, path) in &config.aliases {
-                if sub_m.is_present("show_paths") {
-                    println!("{}\t{}", alias, path);
-                } else {
-                    println!("{}", alias);
-                }
-            }
-        }
-        (COMMAND_RM, Some(sub_m)) => {
-            let alias = sub_m.value_of("alias").expect("alias is required");
-            if config.aliases.remove(alias).is_none() {
-                std::process::exit(1);
-            }
-            save_config_file(config_path, &config)?;
-        }
-        (COMMAND_MV, Some(sub_m)) => {
-            let alias_from = sub_m
-                .value_of("alias_from")
-                .expect("alias_from is required");
-            let alias_to = sub_m
-                .value_of("alias_to")
-                .expect("alias_to is required argument")
-                .to_owned();
-
-            if config.aliases.contains_key(&alias_to) {
-                if !sub_m.is_present("force") {
-                    eprintln!("Destination alias exists. Use -f to replaced it anyway.");
-                    std::process::exit(1);
-                }
-            }
-            match config.aliases.remove(alias_from) {
-                Some(ref path) => {
-                    config.aliases.insert(alias_to.clone(), path.clone());
-                    save_config_file(config_path, &config)?;
-                    println!("{} -> {}\t{}", alias_from, alias_to, path);
-                }
-                None => {
-                    eprintln!("Alias not found: {}", alias_from);
-                    std::process::exit(1);
-                }
-            }
-        }
+        (COMMAND_GET, Some(sub_m)) => command_get(sub_m, &config),
+        (COMMAND_SET, Some(sub_m)) => command_set(sub_m, &mut config, config_path)?,
+        (COMMAND_LS, Some(sub_m)) => command_ls(&config, sub_m),
+        (COMMAND_RM, Some(sub_m)) => command_rm(sub_m, &mut config, config_path)?,
+        (COMMAND_MV, Some(sub_m)) => command_mv(sub_m, config, config_path)?,
         _ => unreachable!(),
     }
 
     Ok(())
+}
+
+fn command_get(sub_m: &clap::ArgMatches, config: &Config) {
+    let alias = sub_m.value_of("alias").expect("alias is required");
+    match config.aliases.get(alias) {
+        Some(path) => {
+            println!("{}", path);
+        }
+        None => {
+            std::process::exit(1);
+        }
+    }
+}
+
+fn command_set(
+    sub_m: &clap::ArgMatches,
+    config: &mut Config,
+    config_path: &str,
+) -> Result<(), anyhow::Error> {
+    let alias = sub_m
+        .value_of("alias")
+        .expect("alias is required")
+        .to_owned();
+    let path =
+        sub_m.value_of("path").map(|p| p.to_owned()).unwrap_or_else(
+            || match std::env::current_dir().map(|p| p.into_os_string()) {
+                Ok(cwd) => cwd.into_string().unwrap(),
+                Err(err) => {
+                    match err.kind() {
+                        std::io::ErrorKind::NotFound => {
+                            eprintln!("CWD cannot be used: path not found");
+                        }
+                        std::io::ErrorKind::PermissionDenied => {
+                            eprintln!("CWD cannot be used: permission denied");
+                        }
+                        _ => {}
+                    }
+                    std::process::exit(1);
+                }
+            },
+        );
+    let res = config.aliases.insert(alias.clone(), path.clone());
+    save_config_file(config_path, &*config)?;
+    Ok(match res {
+        Some(prev_path) => {
+            println!("{}\t{} -> {}", alias, prev_path, path);
+        }
+        None => println!("{}\tnone -> {}", alias, path),
+    })
+}
+
+fn command_ls(config: &Config, sub_m: &clap::ArgMatches) {
+    for (alias, path) in &config.aliases {
+        if sub_m.is_present("show_paths") {
+            println!("{}\t{}", alias, path);
+        } else {
+            println!("{}", alias);
+        }
+    }
+}
+
+fn command_rm(
+    sub_m: &clap::ArgMatches,
+    config: &mut Config,
+    config_path: &str,
+) -> Result<(), anyhow::Error> {
+    let alias = sub_m.value_of("alias").expect("alias is required");
+    if config.aliases.remove(alias).is_none() {
+        std::process::exit(1);
+    }
+    save_config_file(config_path, &*config)?;
+    Ok(())
+}
+
+fn command_mv(
+    sub_m: &clap::ArgMatches,
+    mut config: Config,
+    config_path: &str,
+) -> Result<(), anyhow::Error> {
+    let alias_from = sub_m
+        .value_of("alias_from")
+        .expect("alias_from is required");
+    let alias_to = sub_m
+        .value_of("alias_to")
+        .expect("alias_to is required argument")
+        .to_owned();
+    if config.aliases.contains_key(&alias_to) {
+        if !sub_m.is_present("force") {
+            eprintln!("Destination alias exists. Use -f to replaced it anyway.");
+            std::process::exit(1);
+        }
+    }
+    Ok(match config.aliases.remove(alias_from) {
+        Some(ref path) => {
+            config.aliases.insert(alias_to.clone(), path.clone());
+            save_config_file(config_path, &config)?;
+            println!("{} -> {}\t{}", alias_from, alias_to, path);
+        }
+        None => {
+            eprintln!("Alias not found: {}", alias_from);
+            std::process::exit(1);
+        }
+    })
 }
 
 fn save_config_file(config_path: &str, config: &Config) -> anyhow::Result<()> {
