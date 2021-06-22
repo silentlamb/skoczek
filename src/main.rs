@@ -6,6 +6,7 @@ const COMMAND_LS: &str = "ls";
 const COMMAND_RM: &str = "rm";
 const COMMAND_GET: &str = "get";
 const COMMAND_SET: &str = "set";
+const COMMAND_MV: &str = "mv";
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
@@ -64,6 +65,26 @@ fn run() -> anyhow::Result<()> {
                     .help("Alias for which to display a path")
                     .required(true)
                     .index(1),
+            ),
+        SubCommand::with_name(COMMAND_MV)
+            .about("Rename an alias")
+            .arg(
+                Arg::with_name("alias_from")
+                    .help("Alias to rename")
+                    .required(true)
+                    .index(1),
+            )
+            .arg(
+                Arg::with_name("alias_to")
+                    .help("Destination alias name")
+                    .required(true)
+                    .index(2),
+            )
+            .arg(
+                Arg::with_name("force")
+                    .help("Rename if destination alias name already exists")
+                    .short("f")
+                    .long("force"),
             ),
     ];
 
@@ -149,6 +170,33 @@ fn run() -> anyhow::Result<()> {
                 std::process::exit(1);
             }
             save_config_file(config_path, &config)?;
+        }
+        (COMMAND_MV, Some(sub_m)) => {
+            let alias_from = sub_m
+                .value_of("alias_from")
+                .expect("alias_from is required");
+            let alias_to = sub_m
+                .value_of("alias_to")
+                .expect("alias_to is required argument")
+                .to_owned();
+
+            if config.aliases.contains_key(&alias_to) {
+                if !sub_m.is_present("force") {
+                    eprintln!("Destination alias exists. Use -f to replaced it anyway.");
+                    std::process::exit(1);
+                }
+            }
+            match config.aliases.remove(alias_from) {
+                Some(ref path) => {
+                    config.aliases.insert(alias_to.clone(), path.clone());
+                    save_config_file(config_path, &config)?;
+                    println!("{} -> {}\t{}", alias_from, alias_to, path);
+                }
+                None => {
+                    eprintln!("Alias not found: {}", alias_from);
+                    std::process::exit(1);
+                }
+            }
         }
         _ => unreachable!(),
     }
