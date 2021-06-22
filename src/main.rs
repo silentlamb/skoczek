@@ -37,8 +37,7 @@ fn run() -> anyhow::Result<()> {
             )
             .arg(
                 Arg::with_name("path")
-                    .help("Path assigned to an alias")
-                    .required(true)
+                    .help("Path assigned to an alias (default: CWD)")
                     .index(2),
             ),
         SubCommand::with_name(COMMAND_LS)
@@ -140,10 +139,27 @@ fn run() -> anyhow::Result<()> {
                 .value_of("alias")
                 .expect("alias is required")
                 .to_owned();
+
             let path = sub_m
                 .value_of("path")
-                .expect("path is required arg")
-                .to_owned();
+                .map(|p| p.to_owned())
+                .unwrap_or_else(
+                    || match std::env::current_dir().map(|p| p.into_os_string()) {
+                        Ok(cwd) => cwd.into_string().unwrap(),
+                        Err(err) => {
+                            match err.kind() {
+                                std::io::ErrorKind::NotFound => {
+                                    eprintln!("CWD cannot be used: path not found");
+                                }
+                                std::io::ErrorKind::PermissionDenied => {
+                                    eprintln!("CWD cannot be used: permission denied");
+                                }
+                                _ => {}
+                            }
+                            std::process::exit(1);
+                        }
+                    },
+                );
 
             let res = config.aliases.insert(alias.clone(), path.clone());
             save_config_file(config_path, &config)?;
