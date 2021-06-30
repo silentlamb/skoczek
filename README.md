@@ -1,7 +1,6 @@
 # Skoczek
 
-Command line utility to manage the interesting paths in the filesystem. The tool
-allows to assign a short name (alias) to the path, and query for paths using aliases.
+Command line utility to bookmark interesting paths in filesystems. The tool allows to assign a short name (alias) to the path, and query for paths using aliases.
 
 This tool is made to be used with shell aliases/functions. In this repository I've
 added proper files to support `fish` shell.
@@ -104,9 +103,9 @@ Output format: alias, path and optional: remote ip, hostname or ssh alias.
 - copy `thisrepo/fish/completions/*.fish` files to `~/.config/fish/completions`
 - copy `thisrepo/fish/functions/*.fish` files to `~/.config/fish/functions`
 
-From now on there are two features available. First is `j` function is available. Usage:
+From now on there are two features available. First is `j` function. Usage:
 
-### Go to the default project
+**Go to the default project**
 
 ```fish
 marcin@drapichrust:~$ skoczek ls -p | column -t
@@ -121,26 +120,21 @@ marcin@drapichrust:~/Dev/Rust/skoczek$
 
 If no project is assigned as a default, `j` command without arguments will print list of known projects and their paths.
 
-### Go to the specified project
-
-**Local:**
+**Go to the specified local project**
 
 ```fish
 marcin@drapichrust:~/Dev/Rust/skoczek$ j dareczek
 marcin@drapichrust:~/DareczekViking$ 
 ```
 
-**Remote:**
+**Go to the specified remote project**
 
 ```shell
 marcin@drapichrust:~/DareczekViking$ j malinka.dev
 ubuntu@malinka:~/dev$  
 ```
 
-
-### Get alias completion
-
-When installed tab-completion is added to `skoczek` command and `f` function.
+The other one is tab-completion for `skoczek` command and `f` function.
 
 ![Fish skoczek completion](term01.png)
 
