@@ -1,4 +1,5 @@
 use clap::{App, AppSettings, Arg, SubCommand};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, path::Path};
 
@@ -9,10 +10,26 @@ const COMMAND_SET: &str = "set";
 const COMMAND_MV: &str = "mv";
 const COMMAND_DEFAULT: &str = "default";
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum Destination {
+    Local(String),
+    Remote { remote: String, path: String },
+}
+
+impl std::fmt::Display for Destination {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Destination::Local(path) => write!(f, "{}", path),
+            Destination::Remote { remote, path } => write!(f, "{}\t{}", path, remote),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
-    pub aliases: HashMap<String, String>,
+    pub aliases: HashMap<String, Destination>,
 
     #[serde(default)]
     pub default: Option<String>,
@@ -49,6 +66,13 @@ fn run() -> anyhow::Result<()> {
                     .help("Replace path if alias already exists")
                     .short("f")
                     .long("force"),
+            )
+            .arg(
+                Arg::with_name("remote")
+                    .short("r")
+                    .long("remote")
+                    .help("Set path to specific remote host")
+                    .takes_value(true),
             ),
         SubCommand::with_name(COMMAND_LS)
             .about("Displays known aliases and their paths")
@@ -58,6 +82,20 @@ fn run() -> anyhow::Result<()> {
                     .short("p")
                     .long("show-paths")
                     .help("Display paths next to aliases"),
+            )
+            .arg(
+                Arg::with_name("all")
+                    .short("a")
+                    .long("--all")
+                    .help("Display all paths")
+                    .conflicts_with_all(&["remote_only"]),
+            )
+            .arg(
+                Arg::with_name("remote_only")
+                    .short("r")
+                    .long("--remote")
+                    .help("Display only remote paths")
+                    .conflicts_with_all(&["local_only"]),
             ),
         SubCommand::with_name(COMMAND_RM)
             .about("Removes an alias")
@@ -176,43 +214,75 @@ fn command_set(
         .value_of("alias")
         .expect("alias is required")
         .to_owned();
-    let path =
-        sub_m.value_of("path").map(|p| p.to_owned()).unwrap_or_else(
-            || match std::env::current_dir().map(|p| p.into_os_string()) {
-                Ok(cwd) => cwd.into_string().unwrap(),
-                Err(err) => {
-                    match err.kind() {
-                        std::io::ErrorKind::NotFound => {
-                            eprintln!("CWD cannot be used: path not found");
+
+    let path = match sub_m.value_of("remote") {
+        Some(_) => match sub_m.value_of("path") {
+            Some(path) => path.to_owned(),
+            None => {
+                eprintln!("CWD cannot be used for --remote");
+                std::process::exit(1);
+            }
+        },
+        None => sub_m
+            .value_of("path")
+            .map(|p| p.to_owned())
+            .unwrap_or_else(
+                || match std::env::current_dir().map(|p| p.into_os_string()) {
+                    Ok(cwd) => cwd.into_string().unwrap(),
+                    Err(err) => {
+                        match err.kind() {
+                            std::io::ErrorKind::NotFound => {
+                                eprintln!("CWD cannot be used: path not found");
+                            }
+                            std::io::ErrorKind::PermissionDenied => {
+                                eprintln!("CWD cannot be used: permission denied");
+                            }
+                            _ => {}
                         }
-                        std::io::ErrorKind::PermissionDenied => {
-                            eprintln!("CWD cannot be used: permission denied");
-                        }
-                        _ => {}
+                        std::process::exit(1);
                     }
-                    std::process::exit(1);
-                }
-            },
-        );
+                },
+            ),
+    };
 
     if config.aliases.contains_key(&alias) && !sub_m.is_present("force") {
         eprintln!("Alias already exists. Use -f to replace it anyway.");
         std::process::exit(1);
     }
 
-    let res = config.aliases.insert(alias.clone(), path.clone());
+    let value = match sub_m.value_of("remote") {
+        Some(remote) => Destination::Remote {
+            remote: remote.to_owned(),
+            path: path.clone(),
+        },
+        None => Destination::Local(path.clone()),
+    };
+
+    let _ = config.aliases.insert(alias.clone(), value.clone());
     save_config_file(config_path, &*config)?;
-    match res {
-        Some(prev_path) => {
-            println!("{}\t{} -> {}", alias, prev_path, path);
-        }
-        None => println!("{}\tnone -> {}", alias, path),
+    match &value {
+        Destination::Local(path) => println!("{}\t{}", alias, path),
+        Destination::Remote { remote, path } => println!("{}\t{}\t{}", alias, path, remote),
     }
     Ok(())
 }
 
 fn command_ls(sub_m: &clap::ArgMatches, config: &Config) {
-    for (alias, path) in &config.aliases {
+    for alias in config.aliases.keys().sorted() {
+        // for (alias, path) in &config.aliases {
+        let path = &config.aliases[alias];
+        match path {
+            Destination::Local(_) => {
+                if sub_m.is_present("remote_only") {
+                    continue;
+                }
+            }
+            Destination::Remote { path: _, remote: _ } => {
+                if !sub_m.is_present("all") && !sub_m.is_present("remote_only") {
+                    continue;
+                }
+            }
+        }
         if sub_m.is_present("show_paths") {
             println!("{}\t{}", alias, path);
         } else {
@@ -311,7 +381,8 @@ fn save_config_file(config_path: &str, config: &Config) -> anyhow::Result<()> {
 }
 
 fn main() {
-    if run().is_err() {
+    if let Err(e) = run() {
+        eprintln!("{}", e);
         std::process::exit(1);
     }
 }
