@@ -60,11 +60,10 @@ jobs:
       - name: List files
         run: ls -alR
       - name: Create pre-release
-        uses: ncipollo/release-action@v1
+        uses: "marvinpinto/action-automatic-releases@latest"
         with:
-          allowUpdates: true
-          artifacts: "output/*"
-          name: "Development Build"
+          files: output/*
+          title: "Development Build"
+          automatic_release_tag: "latest"
           prerelease: true
-          tag: "latest"
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
