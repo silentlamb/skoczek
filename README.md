@@ -8,6 +8,8 @@ added proper files to support `fish` shell.
 ## Usage
 
 ```
+skoczek 0.1.2
+
 USAGE:
     skoczek [OPTIONS] <SUBCOMMAND>
 
@@ -16,16 +18,17 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -c, --config <FILE>     [default: $HOME/.skoczek.json]
+    -c, --config <FILE>    
 
 SUBCOMMANDS:
-    default    Get/set default alias
-    get        Displays path for a given alias
-    help       Prints this message or the help of the given subcommand(s)
-    ls         Displays known aliases and their paths
-    mv         Rename an alias
-    rm         Removes an alias
-    set        Assigns alias to a path
+    completions    Generate shell completions
+    default        Get/set default alias
+    get            Displays path for a given alias
+    help           Prints this message or the help of the given subcommand(s)
+    ls             Displays known aliases and their paths
+    mv             Rename an alias
+    rm             Removes an alias
+    set            Assigns alias to a path
 ```
 
 To get more info on specific subcommand:
@@ -142,11 +145,10 @@ The other one is tab-completion for `skoczek` command and `f` function.
 
 ## Bash integration
 
-First, copy *.sh function files somewhere
-
 ```shell
 $ mkdir -p ~/.skoczek
 $ cp shell/bash/functions.sh ~/.skoczek/
+$ skoczek completions bash > ~/.skoczek/completions-gen.sh
 ```
 
 Then add the following line somewhere in ~/.bashrc:
