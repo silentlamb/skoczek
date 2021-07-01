@@ -161,12 +161,3 @@ if [ -f ~/.skoczek/functions.sh ]; then
 fi
 ```
 
-
-## TODO
-
-- Fix issue with fish and default remote paths
-- Fix completion: tab on `get` doesn't show remote paths
-- Integrate shell files into `skoczek` - to easily generate or install files on current machine
-- Add an option to use different shell on remote (than the one provided by `$SHELL` env)
-- Add wrappers for more shells; currently only `fish` is supported
-

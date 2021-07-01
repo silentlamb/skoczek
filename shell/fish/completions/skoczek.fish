@@ -1,11 +1,11 @@
 #!/usr/bin/fish
 
 function skoczek_available_aliases
-    skoczek list -p 
+    skoczek list -ap
 end
 
 
-set -l skoczek_commands default get help ls list mv rm set -h --help -V --version -c --config
+set -l skoczek_commands completions default get help ls list mv rm set -h --help -V --version -c --config
 
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a default -d 'Get/set default alias'
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a get -d "Display path for a given alias"
@@ -15,8 +15,7 @@ complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a rm -d "Removes an alias"
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a set -d "Assigns alias to a path"
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a "-c --config" -d "Sets custom config file"
-
-
+complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a "completions" -d "Generate basic shell completions"
 
 # Default subcommand
 set -l skoczek_default_args -s --set -h --help
@@ -46,9 +45,9 @@ end
 
 complete -f -c skoczek -n "__fish_seen_subcommand_from mv; and not __skoczek_two_existing_aliases_given" -a "(skoczek_available_aliases)"
 complete -f -c skoczek -n "__fish_seen_subcommand_from mv; and __skoczek_two_existing_aliases_given; and not __fish_seen_subcommand_from -f --force" -a "-f --force"
-
-# Rm
 complete -f -c skoczek -n "__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from (skoczek_available_aliases)" -a "(skoczek_available_aliases)"
-
-# Set
 complete -f -c skoczek -n "__fish_seen_subcommand_from set; and not __fish_seen_subcommand_from -f --force" -a "-f --force"
+
+set -l skoczek_supported_shells bash fish
+complete -f -c skoczek -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from $skoczek_supported_shells" -a "bash" -d "/bin/bash"
+complete -f -c skoczek -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from $skoczek_supported_shells" -a "fish" -d "/usr/bin/fish"
