@@ -43,8 +43,21 @@ jobs:
         with:
           name: ${{ matrix.asset_name }}
           path: ${{ matrix.artifact_name }}
+  upload-shell-artifacts:
+    name: Build .zip with shell helpers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Create shell.zip file from shell/ directory
+        run: scripts/create_shell_package.sh
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: shell
+          path: shell.zip
   create-github-release:
-    needs: upload-release-artifacts
+    needs: [upload-release-artifacts, upload-shell-artifacts]
     name: Create pre-release
     runs-on: ubuntu-latest
     steps:
@@ -57,6 +70,7 @@ jobs:
           mkdir output
           cp artifacts/skoczek-x86_64/skoczek output/skoczek-x86_64
           cp artifacts/skoczek-armv7/skoczek output/skoczek-armv7
+          cp artifacts/shell/shell.zip output/shell.zip
       - name: List files
         run: ls -alR
       - name: Create pre-release
