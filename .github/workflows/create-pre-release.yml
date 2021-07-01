@@ -1,0 +1,69 @@
+name: create-pre-release
+on:
+  push:
+    branches:
+      - develop
+jobs:
+  upload-release-artifacts:
+    name: Build artifacts for ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        name: [
+          x86_64,
+          armv7
+        ]
+        include:
+          - name: x86_64
+            triplet: x86_64-unknown-linux-gnu
+            artifact_name: target/x86_64-unknown-linux-gnu/release/skoczek
+            asset_name: skoczek-x86_64
+          - name: armv7
+            triplet: armv7-unknown-linux-gnueabihf
+            artifact_name: target/armv7-unknown-linux-gnueabihf/release/skoczek
+            asset_name: skoczek-armv7
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Prepare toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          target: ${{ matrix.triplet }}
+          override: true
+      - name: Build release binary
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --target ${{ matrix.triplet }} --release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.artifact_name }}
+  create-github-release:
+    needs: upload-release-artifacts
+    name: Create pre-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Copy artifact binaries to output directory
+        run: |
+          mkdir output
+          cp artifacts/skoczek-x86_64/skoczek output/skoczek-x86_64
+          cp artifacts/skoczek-armv7/skoczek output/skoczek-armv7
+      - name: List files
+        run: ls -alR
+      - name: Create pre-release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "output/*"
+          name: "Development Build"
+          prerelease: true
+          tag: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
