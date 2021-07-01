@@ -12,7 +12,7 @@ function j -d "Change current directory to default one (set by skoczek)"
         set path_to_jump (string split \t (skoczek get $alias_to_jump))
     end
     if test -z "$path_to_jump"
-        set path_to_jump (skoczek default)
+        set path_to_jump (string split \t (skoczek default))
     end
     if test -n "$path_to_jump"    
         if test -n "$path_to_jump[2]"
