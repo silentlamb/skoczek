@@ -1,14 +1,14 @@
-use clap::{App, AppSettings, Arg, SubCommand};
+mod cli;
+
+use clap::Shell;
+use cli::{
+    COMMAND_COMPLETIONS, COMMAND_DEFAULT, COMMAND_GET, COMMAND_LS, COMMAND_MV, COMMAND_RM,
+    COMMAND_SET,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::io;
 use std::{collections::HashMap, fs::File, path::Path};
-
-const COMMAND_LS: &str = "ls";
-const COMMAND_RM: &str = "rm";
-const COMMAND_GET: &str = "get";
-const COMMAND_SET: &str = "set";
-const COMMAND_MV: &str = "mv";
-const COMMAND_DEFAULT: &str = "default";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
@@ -47,121 +47,12 @@ fn run() -> anyhow::Result<()> {
         config_path
     };
 
-    let commands = vec![
-        SubCommand::with_name(COMMAND_SET)
-            .about("Assigns alias to a path")
-            .arg(
-                Arg::with_name("alias")
-                    .help("Alias of a path")
-                    .required(true)
-                    .index(1),
-            )
-            .arg(
-                Arg::with_name("path")
-                    .help("Path assigned to an alias (default: CWD)")
-                    .index(2),
-            )
-            .arg(
-                Arg::with_name("force")
-                    .help("Replace path if alias already exists")
-                    .short("f")
-                    .long("force"),
-            )
-            .arg(
-                Arg::with_name("remote")
-                    .short("r")
-                    .long("remote")
-                    .help("Set path to specific remote host")
-                    .takes_value(true),
-            ),
-        SubCommand::with_name(COMMAND_LS)
-            .about("Displays known aliases and their paths")
-            .alias("list")
-            .arg(
-                Arg::with_name("show_paths")
-                    .short("p")
-                    .long("show-paths")
-                    .help("Display paths next to aliases"),
-            )
-            .arg(
-                Arg::with_name("all")
-                    .short("a")
-                    .long("--all")
-                    .help("Display all paths")
-                    .conflicts_with_all(&["remote_only"]),
-            )
-            .arg(
-                Arg::with_name("remote_only")
-                    .short("r")
-                    .long("--remote")
-                    .help("Display only remote paths")
-                    .conflicts_with_all(&["local_only"]),
-            ),
-        SubCommand::with_name(COMMAND_RM)
-            .about("Removes an alias")
-            .arg(
-                Arg::with_name("alias")
-                    .help("Alias of a path to remove")
-                    .index(1)
-                    .required(true),
-            ),
-        SubCommand::with_name(COMMAND_GET)
-            .about("Displays path for a given alias")
-            .arg(
-                Arg::with_name("alias")
-                    .help("Alias for which to display a path")
-                    .required(true)
-                    .index(1),
-            ),
-        SubCommand::with_name(COMMAND_MV)
-            .about("Rename an alias")
-            .arg(
-                Arg::with_name("alias_from")
-                    .help("Alias to rename")
-                    .required(true)
-                    .index(1),
-            )
-            .arg(
-                Arg::with_name("alias_to")
-                    .help("Destination alias name")
-                    .required(true)
-                    .index(2),
-            )
-            .arg(
-                Arg::with_name("force")
-                    .help("Rename if destination alias name already exists")
-                    .short("f")
-                    .long("force"),
-            ),
-        SubCommand::with_name(COMMAND_DEFAULT)
-            .about("Get/set default alias")
-            .arg(
-                Arg::with_name("set")
-                    .help("Sets alias as default one")
-                    .short("s")
-                    .long("set")
-                    .takes_value(true)
-                    .value_name("ALIAS"),
-            ),
-    ];
+    let app_m = cli::build_cli().get_matches();
 
-    let app_m = App::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .takes_value(true)
-                .value_name("FILE")
-                .default_value(&default_config_path),
-        )
-        .subcommands(commands)
-        .get_matches();
-
-    let config_path = app_m
-        .value_of("config")
-        .expect("default value should work?");
+    let config_path = match app_m.value_of("config") {
+        Some(config) => config,
+        None => default_config_path.as_str(),
+    };
     let mut config = {
         let file = File::open(config_path);
         if let Err(err) = &file {
@@ -187,10 +78,24 @@ fn run() -> anyhow::Result<()> {
         (COMMAND_RM, Some(sub_m)) => command_rm(sub_m, &mut config, config_path)?,
         (COMMAND_MV, Some(sub_m)) => command_mv(sub_m, &mut config, config_path)?,
         (COMMAND_DEFAULT, Some(sub_m)) => command_default(sub_m, &mut config, config_path)?,
+        (COMMAND_COMPLETIONS, Some(sub_m)) => command_completions(sub_m),
         _ => unreachable!(),
     }
 
     Ok(())
+}
+
+fn command_completions(sub_m: &clap::ArgMatches) {
+    let for_shell = match sub_m.value_of("shell").expect("shell is required argument") {
+        "bash" => Shell::Bash,
+        "fish" => Shell::Fish,
+        _ => {
+            eprint!("Unknown shell type");
+            std::process::exit(0);
+        }
+    };
+    let bin_name = env!("CARGO_BIN_NAME");
+    cli::build_cli().gen_completions_to(bin_name, for_shell, &mut io::stdout());
 }
 
 fn command_get(sub_m: &clap::ArgMatches, config: &Config) {
