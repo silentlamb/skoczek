@@ -147,15 +147,17 @@ The other one is tab-completion for `skoczek` command and `f` function.
 
 ```shell
 $ mkdir -p ~/.skoczek
-$ cp shell/bash/functions.sh ~/.skoczek/
-$ skoczek completions bash > ~/.skoczek/completions-gen.sh
+$ cp shell/bash/*.sh ~/.skoczek/
 ```
 
-Then add the following line somewhere in ~/.bashrc:
+Then add the following lines somewhere in `~/.bashrc`:
 
 ```bash
 if [ -f ~/.skoczek/functions.sh ]; then
     source ~/.skoczek/functions.sh
+fi
+if [ -f ~/.skoczek/functions.sh ]; then
+    source ~/.skoczek/completions.sh
 fi
 ```
 
