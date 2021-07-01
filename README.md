@@ -140,6 +140,24 @@ The other one is tab-completion for `skoczek` command and `f` function.
 
 ![Fish j completion](term02.png)
 
+## Bash integration
+
+First, copy *.sh function files somewhere
+
+```shell
+$ mkdir -p ~/.skoczek
+$ cp shell/bash/functions.sh ~/.skoczek/
+```
+
+Then add the following line somewhere in ~/.bashrc:
+
+```bash
+if [ -f ~/.skoczek/functions.sh ]; then
+    source ~/.skoczek/functions.sh
+fi
+```
+
+
 ## TODO
 
 - Fix issue with fish and default remote paths
