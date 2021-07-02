@@ -2,8 +2,8 @@ mod cli;
 
 use clap::Shell;
 use cli::{
-    COMMAND_COMPLETIONS, COMMAND_DEFAULT, COMMAND_GET, COMMAND_LS, COMMAND_MV, COMMAND_RM,
-    COMMAND_SET,
+    COMMAND_CMD, COMMAND_COMPLETIONS, COMMAND_DEFAULT, COMMAND_GET, COMMAND_LS, COMMAND_MV,
+    COMMAND_RM, COMMAND_SET,
 };
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,11 @@ impl std::fmt::Display for Destination {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CommandDef {
+    pub on_enter: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
@@ -33,6 +38,9 @@ pub struct Config {
 
     #[serde(default)]
     pub default: Option<String>,
+
+    #[serde(default)]
+    pub commands: HashMap<String, CommandDef>,
 }
 
 fn run() -> anyhow::Result<()> {
@@ -79,6 +87,7 @@ fn run() -> anyhow::Result<()> {
         (COMMAND_MV, Some(sub_m)) => command_mv(sub_m, &mut config, config_path)?,
         (COMMAND_DEFAULT, Some(sub_m)) => command_default(sub_m, &mut config, config_path)?,
         (COMMAND_COMPLETIONS, Some(sub_m)) => command_completions(sub_m),
+        (COMMAND_CMD, Some(sub_m)) => command_cmd(sub_m, &mut config, config_path)?,
         _ => unreachable!(),
     }
 
@@ -230,14 +239,18 @@ fn command_mv(
     match config.aliases.remove(alias_from) {
         Some(ref path) => {
             config.aliases.insert(alias_to.clone(), path.clone());
-            save_config_file(config_path, &config)?;
-            println!("{} -> {}\t{}", alias_from, alias_to, path);
         }
         None => {
             eprintln!("Alias not found: {}", alias_from);
             std::process::exit(1);
         }
     }
+    if let Some(prev_def) = config.commands.remove(alias_from) {
+        config.commands.insert(alias_to, prev_def);
+    }
+
+    save_config_file(config_path, &config)?;
+
     Ok(())
 }
 
@@ -262,9 +275,14 @@ fn command_default(
     } else {
         match &config.default {
             Some(alias) => match config.aliases.get(alias) {
-                Some(path) => {
-                    println!("{}", path);
-                }
+                Some(dest) => match dest {
+                    Destination::Local(path) => {
+                        println!("{}\t{}", alias, path);
+                    }
+                    Destination::Remote { remote, path } => {
+                        println!("{}\t{}\t{}", alias, path, remote);
+                    }
+                },
                 None => {
                     eprintln!("Config error: default alias is not defined!");
                     std::process::exit(1);
@@ -279,9 +297,49 @@ fn command_default(
     Ok(())
 }
 
+fn command_cmd(
+    sub_m: &clap::ArgMatches,
+    config: &mut Config,
+    config_path: &str,
+) -> Result<(), anyhow::Error> {
+    let alias = sub_m.value_of("alias").expect("alias is required");
+    match config.aliases.get(alias) {
+        Some(dest) => {
+            if let Destination::Remote { remote: _, path: _ } = dest {
+                eprintln!("Remote commands not supported");
+                std::process::exit(1);
+            }
+        }
+        None => {
+            eprintln!("Alias not found");
+            std::process::exit(1);
+        }
+    }
+    if sub_m.is_present("set") {
+        let cmd = sub_m.value_of("set").expect("set value is required");
+        match config.commands.get_mut(alias) {
+            Some(def) => {
+                def.on_enter = cmd.to_owned();
+            }
+            None => {
+                let def = CommandDef {
+                    on_enter: cmd.to_owned(),
+                };
+                config.commands.insert(alias.to_owned(), def);
+            }
+        }
+        save_config_file(config_path, config)?
+    } else {
+        if let Some(def) = config.commands.get(alias) {
+            println!("{}", def.on_enter);
+        }
+    }
+    Ok(())
+}
+
 fn save_config_file(config_path: &str, config: &Config) -> anyhow::Result<()> {
     let config_file = File::create(config_path)?;
-    let _ = serde_json::to_writer(config_file, config)?;
+    let _ = serde_json::to_writer_pretty(config_file, config)?;
     Ok(())
 }
 

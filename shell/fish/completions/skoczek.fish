@@ -4,8 +4,13 @@ function skoczek_available_aliases
     skoczek list -ap
 end
 
+function skoczek_available_local_aliases
+    skoczek list -p
+end
 
-set -l skoczek_commands completions default get help ls list mv rm set -h --help -V --version -c --config
+
+
+set -l skoczek_commands command completions default get help ls list mv rm set -h --help -V --version -c --config
 
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a default -d 'Get/set default alias'
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a get -d "Display path for a given alias"
@@ -16,6 +21,7 @@ complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a set -d "Assigns alias to a path"
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a "-c --config" -d "Sets custom config file"
 complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a "completions" -d "Generate basic shell completions"
+complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a "command" -d "Get/set on-enter commands"
 
 # Default subcommand
 set -l skoczek_default_args -s --set -h --help
@@ -51,3 +57,8 @@ complete -f -c skoczek -n "__fish_seen_subcommand_from set; and not __fish_seen_
 set -l skoczek_supported_shells bash fish
 complete -f -c skoczek -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from $skoczek_supported_shells" -a "bash" -d "/bin/bash"
 complete -f -c skoczek -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from $skoczek_supported_shells" -a "fish" -d "/usr/bin/fish"
+
+# Subcommand: command
+set -l skoczek_command_args -s --set -h --help
+complete -f -c skoczek -n "__fish_seen_subcommand_from command; and not __fish_seen_subcommand_from (skoczek_available_local_aliases)" -a "(skoczek_available_local_aliases)"
+complete -f -c skoczek -n "__fish_seen_subcommand_from command; and not __fish_seen_subcommand_from $skoczek_command_args" -a "$skoczek_command_args"

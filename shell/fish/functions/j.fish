@@ -7,18 +7,30 @@ function j -d "Change current directory to default one (set by skoczek)"
         return
     end
 
-    set alias_to_jump $argv[1]
-    if test -n "$alias_to_jump"
-        set path_to_jump (string split \t (skoczek get $alias_to_jump))
+    set skoczek_alias $argv[1]
+    set skoczek_path
+    set skoczek_remote
+
+    if test -n "$skoczek_alias"
+        set segments (string split \t (skoczek get $skoczek_alias 2>/dev/null))
+        set skoczek_path $segments[1]
+        set skoczek_remote $segments[2]
     end
-    if test -z "$path_to_jump"
-        set path_to_jump (string split \t (skoczek default))
+    if test -z "$skoczek_path"
+        set segments (string split \t (skoczek default))
+        set skoczek_alias $segments[1]
+        set skoczek_path $segments[2]
+        set skoczek_remote $segments[3]
     end
-    if test -n "$path_to_jump"    
-        if test -n "$path_to_jump[2]"
-            ssh -t $path_to_jump[2] "cd $path_to_jump[1] && \$SHELL -i"
+    if test -n "$skoczek_path"
+        if test -n "$skoczek_remote"
+            ssh -t $skoczek_remote "cd $skoczek_path && \$SHELL -i"
         else
-            cd $path_to_jump
+            cd $skoczek_path
+            set on_enter_cmd (skoczek command $skoczek_alias)
+            if test -n "$on_enter_cmd"
+                eval "$on_enter_cmd"
+            end
         end
     else
         skoczek list -ap | sort | column -t
