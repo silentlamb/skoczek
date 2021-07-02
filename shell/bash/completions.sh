@@ -25,6 +25,9 @@ _skoczek() {
     for i in ${COMP_WORDS[@]:1}
     do
         case "${i}" in
+            command)
+                cmd+="__command"
+                ;;
             completions)
                 cmd+="__completions"
                 ;;
@@ -66,7 +69,7 @@ _skoczek() {
 
     case "${cmd}" in
         skoczek)
-            opts="-h -V -c --help --version --config set ls rm get mv default completions help list"
+            opts="-h -V -c --help --version --config set ls rm get mv default completions help list command"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -87,11 +90,36 @@ _skoczek() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        skoczek__command)
+            opts=" -h -V -s --help --version --set"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts} ${aliases}" -- "${cur}") )
+                return 0
+            fi
+
+            return 0
+            ;;
         skoczek__completions)
             opts=" -h -V --help --version bash fish"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
+            fi
+            case "${prev}" in
+                --set)
+                    COMPREPLY=()
+                    return 0
+                    ;;
+                -s)
+                    COMPREPLY=()
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            if [[ "${contains_alias}" == "0" ]]; then
+                opts="${opts} ${aliases}"
             fi
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0

@@ -5,22 +5,28 @@ function j {
         echo "Command 'skoczek' cannot be find anywhere in a PATH" 1>&2
         return
     fi
-    declare project="$1"
-    declare path=""
-    declare remote=""
+    declare skoczek_project="$1"
+    declare skoczek_path=""
+    declare skoczek_remote=""
+    declare on_enter_cmd=""
 
-    if [ ! -z "${project}" ]; then
-        IFS=$'\t' read -r path remote <<< "$(skoczek get ${project})"
+    if [ ! -z "${skoczek_project}" ]; then
+        IFS=$'\t' read -r skoczek_path skoczek_remote <<< "$(skoczek get ${skoczek_project})"
     else
-        IFS=$'\t' read -r path remote <<< "$(skoczek default)"
+        IFS=$'\t' read -r skoczek_project skoczek_path skoczek_remote <<< "$(skoczek default)"
     fi
-    if [ -z "${path}" ]; then
+    if [ -z "${skoczek_path}" ]; then
         skoczek list -ap | sort | column -t
     else
-        if [ -z "${remote}" ]; then
-            cd $path
+        if [ -z "${skoczek_remote}" ]; then
+            cd $skoczek_path
+            on_enter_cmd=$(skoczek command $project)
+            if [ ! -z "$on_enter_cmd" ]; then
+                eval $on_enter_cmd
+            fi
         else
-            ssh -t $remote "cd ${path} && \$SHELL -i"
+            # TODO: Find a way to call $SHELL -i and *then* call eval $on_enter_cmd
+            ssh -t ${skoczek_remote} "cd ${skoczek_path} && \$SHELL -i"
         fi
     fi
 }

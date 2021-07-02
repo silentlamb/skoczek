@@ -8,7 +8,7 @@ added proper files to support `fish` shell.
 ## Usage
 
 ```
-skoczek 0.1.2
+skoczek 0.1.3
 
 USAGE:
     skoczek [OPTIONS] <SUBCOMMAND>
@@ -21,6 +21,7 @@ OPTIONS:
     -c, --config <FILE>    
 
 SUBCOMMANDS:
+    command        Get/set command to be run after the jump
     completions    Generate shell completions
     default        Get/set default alias
     get            Displays path for a given alias
@@ -100,6 +101,23 @@ skoczek /home/marcin/Dev/Rust/skoczek
 
 Output format: alias, path and optional: remote ip, hostname or ssh alias.
 
+### Assigning commands
+
+It is possible to assign a command to an alias. To store the command, use -s argument:
+
+```bash
+$ skoczek command dareczek -s "source venv/bin/activate.fish"
+```
+
+To read the command:
+
+```bash
+$ skoczek command dareczek
+source venv/bin/activate.fish
+```
+
+Currently only local paths can execute commands when entering them. Executing commands on remote has some unresolved technical difficulties.
+
 
 ## Fish integration
 
@@ -127,8 +145,10 @@ If no project is assigned as a default, `j` command without arguments will print
 
 ```fish
 marcin@drapichrust:~/Dev/Rust/skoczek$ j dareczek
-marcin@drapichrust:~/DareczekViking$ 
+(venv) marcin@drapichrust:~/DareczekViking$ 
 ```
+
+Note: `source venv/bin/activate.fish` command has been executed.
 
 **Go to the specified remote project**
 

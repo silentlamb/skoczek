@@ -7,6 +7,7 @@ pub const COMMAND_SET: &str = "set";
 pub const COMMAND_MV: &str = "mv";
 pub const COMMAND_DEFAULT: &str = "default";
 pub const COMMAND_COMPLETIONS: &str = "completions";
+pub const COMMAND_CMD: &str = "command";
 
 pub fn build_cli() -> App<'static, 'static> {
     let commands = vec![
@@ -113,6 +114,22 @@ pub fn build_cli() -> App<'static, 'static> {
                     .required(true)
                     .validator(is_supported_shell_name)
                     .index(1),
+            ),
+        SubCommand::with_name(COMMAND_CMD)
+            .about("Get/set command to be run after the jump")
+            .arg(
+                Arg::with_name("alias")
+                    .help("Alias to rename")
+                    .required(true)
+                    .index(1),
+            )
+            .arg(
+                Arg::with_name("set")
+                    .help("Set a command for an alias")
+                    .short("s")
+                    .long("set")
+                    .takes_value(true)
+                    .value_name("CMD"),
             ),
     ];
 
