@@ -1,13 +1,24 @@
 #!/usr/bin/fish
 
+function skoczek_available_aliases_no_path
+    skoczek list -a
+end
 function skoczek_available_aliases
     skoczek list -ap
 end
 
+
+function skoczek_available_local_aliases_no_path
+    skoczek list
+end
 function skoczek_available_local_aliases
     skoczek list -p
 end
 
+
+
+# Disable file completions
+complete -c skoczek -f
 
 
 set -l skoczek_commands command completions default get help ls list mv rm set -h --help -V --version -c --config
@@ -26,10 +37,12 @@ complete -f -c skoczek -n "not __fish_seen_subcommand_from $skoczek_commands" -a
 # Default subcommand
 set -l skoczek_default_args -s --set -h --help
 complete -f -c skoczek -n "__fish_seen_subcommand_from default; and not __fish_seen_subcommand_from $skoczek_default_args" -a "$skoczek_default_args" -d "Sets default alias"
-complete -f -c skoczek -n "__fish_seen_subcommand_from default; and __fish_seen_subcommand_from -s --set; and not __fish_seen_subcommand_from (skoczek_available_aliases)" -a "(skoczek_available_aliases)"
+complete -f -c skoczek -n "__fish_seen_subcommand_from default; and __fish_seen_subcommand_from -s --set; and not __fish_seen_subcommand_from (skoczek_available_aliases_no_path)" -a "(skoczek_available_aliases)"
 
 # Get subcommand
-complete -f -c skoczek -n "__fish_seen_subcommand_from get; and not __fish_seen_subcommand_from (skoczek_available_aliases)" -a "(skoczek_available_aliases)"
+set -l skoczek_set_args -h --help
+complete -f -c skoczek -n "__fish_seen_subcommand_from get; and not __fish_seen_subcommand_from (skoczek_available_aliases_no_path)" -a "(skoczek_available_aliases)"
+complete -f -c skoczek -n "__fish_seen_subcommand_from get; and not __fish_seen_subcommand_from $skoczek_set_args" -a "$skoczek_set_args"
 
 # Ls subcommand
 set -l skoczek_ls_args -p --show-paths -h --help
@@ -49,16 +62,26 @@ function __skoczek_two_existing_aliases_given
     return 1
 end
 
+set -l skoczek_mv_args -h --help
+complete -f -c skoczek -n "__fish_seen_subcommand_from mv; and not __fish_seen_subcommand_from $skoczek_mv_args" -a "$skoczek_mv_args"
 complete -f -c skoczek -n "__fish_seen_subcommand_from mv; and not __skoczek_two_existing_aliases_given" -a "(skoczek_available_aliases)"
 complete -f -c skoczek -n "__fish_seen_subcommand_from mv; and __skoczek_two_existing_aliases_given; and not __fish_seen_subcommand_from -f --force" -a "-f --force"
-complete -f -c skoczek -n "__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from (skoczek_available_aliases)" -a "(skoczek_available_aliases)"
+
+set -l skoczek_rm_args -h --help
+complete -f -c skoczek -n "__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from $skoczek_rm_args" -a "$skoczek_rm_args"
+complete -f -c skoczek -n "__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from (skoczek_available_aliases_no_path)" -a "(skoczek_available_aliases)"
+
+set -l skoczek_set_args -h --help
+complete -f -c skoczek -n "__fish_seen_subcommand_from set; and not __fish_seen_subcommand_from $skoczek_set_args" -a "$skoczek_set_args"
 complete -f -c skoczek -n "__fish_seen_subcommand_from set; and not __fish_seen_subcommand_from -f --force" -a "-f --force"
 
 set -l skoczek_supported_shells bash fish
+set -l skoczek_completions_args -h --help
+complete -f -c skoczek -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from $skoczek_completions_args" -a "$skoczek_completions_args"
 complete -f -c skoczek -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from $skoczek_supported_shells" -a "bash" -d "/bin/bash"
 complete -f -c skoczek -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from $skoczek_supported_shells" -a "fish" -d "/usr/bin/fish"
 
 # Subcommand: command
 set -l skoczek_command_args -s --set -h --help
-complete -f -c skoczek -n "__fish_seen_subcommand_from command; and not __fish_seen_subcommand_from (skoczek_available_local_aliases)" -a "(skoczek_available_local_aliases)"
+complete -f -c skoczek -n "__fish_seen_subcommand_from command; and not __fish_seen_subcommand_from (skoczek_available_local_aliases_no_path)" -a "(skoczek_available_local_aliases)"
 complete -f -c skoczek -n "__fish_seen_subcommand_from command; and not __fish_seen_subcommand_from $skoczek_command_args" -a "$skoczek_command_args"
