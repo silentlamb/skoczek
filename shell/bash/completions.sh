@@ -4,6 +4,10 @@ _skoczek_list_aliases() {
     skoczek ls -a | paste -s -d ' '
 }
 
+_skoczek_list_local_aliases() {
+    skoczek ls | paste -s -d ' '
+}
+
 
 #
 # Note: this completion function is based on the output of:
@@ -20,7 +24,12 @@ _skoczek() {
     opts=""
     aliases=""
     aliases="$(_skoczek_list_aliases)"
+
+    local_aliases=""
+    local_aliases="$(_skoczek_list_local_aliases)"
+
     contains_alias="0"
+    contains_local_alias="0"
 
     for i in ${COMP_WORDS[@]:1}
     do
@@ -65,6 +74,9 @@ _skoczek() {
         if [[ " ${aliases} " =~ " ${i} " ]]; then
             contains_alias="1"
         fi
+        if [[ " ${local_aliases} " =~ " ${i} " ]]; then
+            contains_local_alias="1"
+        fi
     done
 
     case "${cmd}" in
@@ -93,10 +105,13 @@ _skoczek() {
         skoczek__command)
             opts=" -h -V -s --help --version --set"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts} ${aliases}" -- "${cur}") )
+                COMPREPLY=( $(compgen -W "${opts} ${local_aliases}" -- "${cur}") )
                 return 0
             fi
-
+            if [[ "$contains_local_alias" == "0" ]]; then
+                opts="${opts} ${local_aliases}"
+            fi
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
         skoczek__completions)

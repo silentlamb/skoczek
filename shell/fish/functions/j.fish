@@ -15,8 +15,7 @@ function j -d "Change current directory to default one (set by skoczek)"
         set segments (string split \t (skoczek get $skoczek_alias 2>/dev/null))
         set skoczek_path $segments[1]
         set skoczek_remote $segments[2]
-    end
-    if test -z "$skoczek_path"
+    else
         set segments (string split \t (skoczek default))
         set skoczek_alias $segments[1]
         set skoczek_path $segments[2]
@@ -30,6 +29,8 @@ function j -d "Change current directory to default one (set by skoczek)"
             set on_enter_cmd (skoczek command $skoczek_alias)
             if test -n "$on_enter_cmd"
                 eval "$on_enter_cmd"
+            else
+                clear
             end
         end
     else
