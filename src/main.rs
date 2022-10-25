@@ -8,6 +8,7 @@ use cli::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::io;
+use std::path::PathBuf;
 use std::{collections::HashMap, fs::File, path::Path};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -119,16 +120,42 @@ fn command_get(sub_m: &clap::ArgMatches, config: &Config) {
     }
 }
 
+fn get_cwd_or_exit() -> PathBuf {
+    match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(err) => {
+            match err.kind() {
+                std::io::ErrorKind::NotFound => {
+                    eprintln!("CWD cannot be used: path not found");
+                },
+                std::io::ErrorKind::PermissionDenied => {
+                    eprintln!("CWD cannot be used: permission denied");
+                },
+                _ => {}
+            };
+            std::process::exit(1);
+        }
+    }
+}
+
 fn command_set(
     sub_m: &clap::ArgMatches,
     config: &mut Config,
     config_path: &str,
 ) -> Result<(), anyhow::Error> {
-    let alias = sub_m
-        .value_of("alias")
-        .expect("alias is required")
-        .to_owned();
-
+    let cwd = get_cwd_or_exit();
+    let alias = {
+        match sub_m.value_of("alias") {
+            Some(x) => x.to_owned(),
+            None => match cwd.file_name() {
+                Some(name) => name.to_string_lossy().into_owned(),
+                None => {
+                    eprintln!("Last part of CWD could not be retrieved");
+                    std::process::exit(1);
+                },
+            },
+        }
+    };
     let path = match sub_m.value_of("remote") {
         Some(_) => match sub_m.value_of("path") {
             Some(path) => path.to_owned(),
@@ -137,26 +164,10 @@ fn command_set(
                 std::process::exit(1);
             }
         },
-        None => sub_m
-            .value_of("path")
-            .map(|p| p.to_owned())
-            .unwrap_or_else(
-                || match std::env::current_dir().map(|p| p.into_os_string()) {
-                    Ok(cwd) => cwd.into_string().unwrap(),
-                    Err(err) => {
-                        match err.kind() {
-                            std::io::ErrorKind::NotFound => {
-                                eprintln!("CWD cannot be used: path not found");
-                            }
-                            std::io::ErrorKind::PermissionDenied => {
-                                eprintln!("CWD cannot be used: permission denied");
-                            }
-                            _ => {}
-                        }
-                        std::process::exit(1);
-                    }
-                },
-            ),
+        None => match sub_m.value_of("path") {
+            Some(path) => path.to_owned(),
+            None => cwd.to_string_lossy().into_owned(),
+        }
     };
 
     if config.aliases.contains_key(&alias) && !sub_m.is_present("force") {

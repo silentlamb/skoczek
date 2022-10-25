@@ -15,8 +15,7 @@ pub fn build_cli() -> App<'static, 'static> {
             .about("Assigns alias to a path")
             .arg(
                 Arg::with_name("alias")
-                    .help("Alias of a path")
-                    .required(true)
+                    .help("Alias of a path (default: last part of CWD)")
                     .index(1),
             )
             .arg(
