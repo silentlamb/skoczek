@@ -1,17 +1,8 @@
 mod cli;
 mod cmd;
-
-use cli::{
-    COMMAND_CMD, COMMAND_COMPLETIONS, COMMAND_DEFAULT, COMMAND_GET, COMMAND_LS, COMMAND_MV,
-    COMMAND_RM, COMMAND_SET,
-};
-use cmd::{
-    command_cmd, command_completions, command_default, command_get, command_ls, command_mv,
-    command_rm, command_set,
-};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::{collections::HashMap, fs::File, path::Path};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -49,23 +40,17 @@ pub struct Config {
 
 fn run() -> anyhow::Result<()> {
     let default_config_path = {
-        // TODO: Fix default path
+        // TODO: Fix default path - ????????????????????????????
         let home_path = std::env::var("HOME")?;
         Path::new(&home_path).join(".skoczek.json")
     };
 
-    let app_m = cli::build_cli().get_matches();
+    let app_m = cli::Cli::parse();
+    let config_path = app_m
+        .config
+        .map(PathBuf::from)
+        .unwrap_or(default_config_path);
 
-    let config_path = match app_m.value_of("config") {
-        Some(config) => match PathBuf::from_str(config) {
-            Ok(config) => config,
-            Err(_) => {
-                eprintln!("Config path could not be parsed");
-                std::process::exit(1);
-            }
-        },
-        None => default_config_path,
-    };
     let mut config = {
         let file = File::open(&config_path);
         if let Err(err) = &file {
@@ -84,16 +69,14 @@ fn run() -> anyhow::Result<()> {
         }
     };
 
-    match app_m.subcommand() {
-        (COMMAND_GET, Some(sub_m)) => command_get(sub_m, &config),
-        (COMMAND_LS, Some(sub_m)) => command_ls(sub_m, &config),
-        (COMMAND_SET, Some(sub_m)) => command_set(sub_m, &mut config, &config_path)?,
-        (COMMAND_RM, Some(sub_m)) => command_rm(sub_m, &mut config, &config_path)?,
-        (COMMAND_MV, Some(sub_m)) => command_mv(sub_m, &mut config, &config_path)?,
-        (COMMAND_DEFAULT, Some(sub_m)) => command_default(sub_m, &mut config, &config_path)?,
-        (COMMAND_COMPLETIONS, Some(sub_m)) => command_completions(sub_m),
-        (COMMAND_CMD, Some(sub_m)) => command_cmd(sub_m, &mut config, &config_path)?,
-        _ => unreachable!(),
+    match app_m.command {
+        cli::Commands::Command(args) => cmd::command_cmd(args, &mut config, &config_path)?,
+        cli::Commands::Default(args) => cmd::command_default(args, &mut config, &config_path)?,
+        cli::Commands::Get(args) => cmd::command_get(args, &config),
+        cli::Commands::Ls(args) => cmd::command_ls(args, &config),
+        cli::Commands::Mv(args) => cmd::command_mv(args, &mut config, &config_path)?,
+        cli::Commands::Rm(args) => cmd::command_rm(args, &mut config, &config_path)?,
+        cli::Commands::Set(args) => cmd::command_set(args, &mut config, &config_path)?,
     }
 
     Ok(())

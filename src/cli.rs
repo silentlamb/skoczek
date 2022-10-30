@@ -1,154 +1,106 @@
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{Args, Parser, Subcommand};
 
-pub const COMMAND_LS: &str = "ls";
-pub const COMMAND_RM: &str = "rm";
-pub const COMMAND_GET: &str = "get";
-pub const COMMAND_SET: &str = "set";
-pub const COMMAND_MV: &str = "mv";
-pub const COMMAND_DEFAULT: &str = "default";
-pub const COMMAND_COMPLETIONS: &str = "completions";
-pub const COMMAND_CMD: &str = "command";
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(propagate_version = true)]
+pub(crate) struct Cli {
+    /// Path to configuration (default: ~/.skoczek.json)
+    #[arg(short, long)]
+    pub config: Option<String>,
 
-pub fn build_cli() -> App<'static, 'static> {
-    let commands = vec![
-        SubCommand::with_name(COMMAND_SET)
-            .about("Assigns alias to a path")
-            .arg(
-                Arg::with_name("alias")
-                    .help("Alias of a path (default: last part of CWD)")
-                    .index(1),
-            )
-            .arg(
-                Arg::with_name("path")
-                    .help("Path assigned to an alias (default: CWD)")
-                    .index(2),
-            )
-            .arg(
-                Arg::with_name("force")
-                    .help("Replace path if alias already exists")
-                    .short("f")
-                    .long("force"),
-            )
-            .arg(
-                Arg::with_name("remote")
-                    .short("r")
-                    .long("remote")
-                    .help("Set path to specific remote host")
-                    .takes_value(true),
-            ),
-        SubCommand::with_name(COMMAND_LS)
-            .about("Displays known aliases and their paths")
-            .alias("list")
-            .arg(
-                Arg::with_name("show_paths")
-                    .short("p")
-                    .long("show-paths")
-                    .help("Display paths next to aliases"),
-            )
-            .arg(
-                Arg::with_name("all")
-                    .short("a")
-                    .long("--all")
-                    .help("Display all paths")
-                    .conflicts_with_all(&["remote_only"]),
-            )
-            .arg(
-                Arg::with_name("remote_only")
-                    .short("r")
-                    .long("--remote")
-                    .help("Display only remote paths")
-                    .conflicts_with_all(&["local_only"]),
-            ),
-        SubCommand::with_name(COMMAND_RM)
-            .about("Removes an alias")
-            .arg(
-                Arg::with_name("alias")
-                    .help("Alias of a path to remove")
-                    .index(1)
-                    .required(true),
-            ),
-        SubCommand::with_name(COMMAND_GET)
-            .about("Displays path for a given alias")
-            .arg(
-                Arg::with_name("alias")
-                    .help("Alias for which to display a path")
-                    .required(true)
-                    .index(1),
-            ),
-        SubCommand::with_name(COMMAND_MV)
-            .about("Rename an alias")
-            .arg(
-                Arg::with_name("alias_from")
-                    .help("Alias to rename")
-                    .required(true)
-                    .index(1),
-            )
-            .arg(
-                Arg::with_name("alias_to")
-                    .help("Destination alias name")
-                    .required(true)
-                    .index(2),
-            )
-            .arg(
-                Arg::with_name("force")
-                    .help("Rename if destination alias name already exists")
-                    .short("f")
-                    .long("force"),
-            ),
-        SubCommand::with_name(COMMAND_DEFAULT)
-            .about("Get/set default alias")
-            .arg(
-                Arg::with_name("set")
-                    .help("Sets alias as default one")
-                    .short("s")
-                    .long("set")
-                    .takes_value(true)
-                    .value_name("ALIAS"),
-            ),
-        SubCommand::with_name(COMMAND_COMPLETIONS)
-            .about("Generate shell completions")
-            .arg(
-                Arg::with_name("shell")
-                    .help("Name of shell (bash, fish)")
-                    .required(true)
-                    .validator(is_supported_shell_name)
-                    .index(1),
-            ),
-        SubCommand::with_name(COMMAND_CMD)
-            .about("Get/set command to be run after the jump")
-            .arg(
-                Arg::with_name("alias")
-                    .help("Alias to rename")
-                    .required(true)
-                    .index(1),
-            )
-            .arg(
-                Arg::with_name("set")
-                    .help("Set a command for an alias")
-                    .short("s")
-                    .long("set")
-                    .takes_value(true)
-                    .value_name("CMD"),
-            ),
-    ];
-
-    App::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .takes_value(true)
-                .value_name("FILE"),
-        )
-        .subcommands(commands)
+    #[command(subcommand)]
+    pub command: Commands,
 }
 
-fn is_supported_shell_name(v: String) -> Result<(), String> {
-    let allowed: Vec<&str> = vec!["bash", "fish"];
-    if allowed.contains(&v.as_str()) {
-        return Ok(());
-    }
-    Err(String::from("supported shells: bash, fish"))
+#[derive(Subcommand)]
+pub enum Commands {
+    Command(CmdCommand),
+    Default(CmdDefault),
+    Get(CmdGet),
+
+    #[command(aliases = &["list"])]
+    Ls(CmdLs),
+    Mv(CmdMv),
+    Rm(CmdRm),
+    Set(CmdSet),
+}
+
+// Get/set command(s) to be run after the jump
+#[derive(Args)]
+pub struct CmdCommand {
+    /// Alias name
+    pub alias: String,
+
+    #[arg(short = 's', long = "set")]
+    pub command: Option<String>,
+}
+
+/// Get/set default alias
+#[derive(Args)]
+pub struct CmdDefault {
+    /// Sets given alias as a default one
+    #[arg(short = 's', long = "set")]
+    pub alias: Option<String>,
+}
+
+/// Displays path for a given alias
+#[derive(Args)]
+pub struct CmdGet {
+    /// Alias for which to display a path
+    pub alias: String,
+}
+
+/// Displays known aliases and their paths
+#[derive(Args)]
+pub struct CmdLs {
+    /// Display paths next to aliases
+    #[arg(short = 'p', long)]
+    pub show_paths: bool,
+
+    /// Display all paths
+    #[arg(short, long, conflicts_with = "remote_only")]
+    pub all: bool,
+
+    /// Display remote paths only
+    #[arg(short, long = "remote", conflicts_with = "all")]
+    pub remote_only: bool,
+}
+
+/// Rename an alias
+#[derive(Args)]
+pub struct CmdMv {
+    /// Alias to rename
+    pub alias_from: String,
+
+    /// Destination alias name
+    pub alias_to: String,
+
+    /// Rename if destination alias name already exists
+    #[arg(short, long)]
+    pub force: bool,
+}
+
+/// Removes an alias
+#[derive(Args)]
+pub struct CmdRm {
+    /// Alias of a path to remove
+    pub alias: String,
+}
+
+/// Assigns alias to a path
+#[derive(Args)]
+pub struct CmdSet {
+    /// Alias of a path (default: last part of CMD)
+    pub alias: Option<String>,
+
+    /// Path assigned to an alais (default: CWD)
+    pub path: Option<String>,
+
+    /// Replace path if alias already exists
+    #[arg(short, long)]
+    pub force: bool,
+
+    /// Set path to specific remote host
+    #[arg(short, long)]
+    pub remote: Option<String>,
 }
